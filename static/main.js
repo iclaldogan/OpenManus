@@ -1,5 +1,179 @@
 let currentEventSource = null;
 
+let exampleApiKey = '';
+
+function checkConfigStatus() {
+    fetch('/config/status')
+    .then(response => response.json())
+    .then(data => {
+        const inputContainer = document.getElementById('input-container');
+        if (data.status === 'missing') {
+            showConfigModal(data.example_config);
+            inputContainer.classList.add('disabled');
+        } else if (data.status === 'no_example') {
+            alert('Error: Missing configuration example file! Please ensure that the config/config.example.toml file exists.');
+            inputContainer.classList.add('disabled');
+        } else {
+            inputContainer.classList.remove('disabled');
+        }
+    })
+    .catch(error => {
+        console.error('Configuration check failed:', error);
+        document.getElementById('input-container').classList.add('disabled');
+    });
+}
+
+// Display configuration pop-up and fill in sample configurations
+function showConfigModal(config) {
+    const configModal = document.getElementById('config-modal');
+    if (!configModal) return;
+
+    configModal.classList.add('active');
+
+    if (config) {
+        fillConfigForm(config);
+    }
+
+    const closeBtn = configModal.querySelector('.close-modal');
+    const cancelBtn = document.getElementById('cancel-config-btn');
+
+    function closeConfigModal() {
+        configModal.classList.remove('active');
+        document.getElementById('config-error').textContent = '';
+        document.querySelectorAll('.form-group.error').forEach(group => {
+            group.classList.remove('error');
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.onclick = closeConfigModal;
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = closeConfigModal;
+    }
+
+    const saveButton = document.getElementById('save-config-btn');
+    if (saveButton) {
+        saveButton.onclick = saveConfig;
+    }
+}
+
+// Use example configuration to fill in the form
+function fillConfigForm(exampleConfig) {
+    if (exampleConfig.llm) {
+        const llm = exampleConfig.llm;
+
+        setInputValue('llm-model', llm.model);
+        setInputValue('llm-base-url', llm.base_url);
+        setInputValue('llm-api-key', llm.api_key);
+
+        exampleApiKey = llm.api_key || '';
+
+        setInputValue('llm-max-tokens', llm.max_tokens);
+        setInputValue('llm-temperature', llm.temperature);
+    }
+
+    if (exampleConfig.server) {
+        setInputValue('server-host', exampleConfig.server.host);
+        setInputValue('server-port', exampleConfig.server.port);
+    }
+}
+
+function setInputValue(id, value) {
+    const input = document.getElementById(id);
+    if (input && value !== undefined) {
+        input.value = value;
+    }
+}
+
+function saveConfig() {
+    const configData = collectFormData();
+
+    const requiredFields = [
+        { id: 'llm-model', name: 'Model Name' },
+        { id: 'llm-base-url', name: 'API Base URL' },
+        { id: 'llm-api-key', name: 'API Key' },
+        { id: 'server-host', name: 'Server Host' },
+        { id: 'server-port', name: 'Server Port' }
+    ];
+
+    let missingFields = [];
+    requiredFields.forEach(field => {
+        if (!document.getElementById(field.id).value.trim()) {
+            missingFields.push(field.name);
+        }
+    });
+
+    if (missingFields.length > 0) {
+        document.getElementById('config-error').textContent =
+            `Please fill in the necessary configuration information: ${missingFields.join(', ')}`;
+        return;
+    }
+
+    // Check if the API key is the same as the example configuration
+    const apiKey = document.getElementById('llm-api-key').value.trim();
+    if (apiKey === exampleApiKey && exampleApiKey.includes('sk-')) {
+        document.getElementById('config-error').textContent =
+            `Please enter your own API key`;
+        document.getElementById('llm-api-key').parentElement.classList.add('error');
+        return;
+    } else {
+        document.getElementById('llm-api-key').parentElement.classList.remove('error');
+    }
+
+    fetch('/config/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            document.getElementById('config-modal').classList.remove('active');
+            document.getElementById('input-container').classList.remove('disabled');
+            alert('Configuration saved successfully! The application will use the new configuration on next startup.');
+            window.location.reload();
+        } else {
+            document.getElementById('config-error').textContent =
+                `Save failed: ${data.message}`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('config-error').textContent =
+            `Request error: ${error.message}`;
+    });
+}
+
+// Collect form data
+function collectFormData() {
+    const configData = {
+        llm: {
+            model: document.getElementById('llm-model').value,
+            base_url: document.getElementById('llm-base-url').value,
+            api_key: document.getElementById('llm-api-key').value
+        },
+        server: {
+            host: document.getElementById('server-host').value,
+            port: parseInt(document.getElementById('server-port').value || '5172')
+        }
+    };
+
+    const maxTokens = document.getElementById('llm-max-tokens').value;
+    if (maxTokens) {
+        configData.llm.max_tokens = parseInt(maxTokens);
+    }
+
+    const temperature = document.getElementById('llm-temperature').value;
+    if (temperature) {
+        configData.llm.temperature = parseFloat(temperature);
+    }
+
+    return configData;
+}
+
 function createTask() {
     const promptInput = document.getElementById('prompt-input');
     const prompt = promptInput.value.trim();
@@ -495,7 +669,36 @@ print("Hello from Python Simulated environment!")
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Check configuration status on startup
+    checkConfigStatus();
+
     loadHistory();
+
+    const configButton = document.getElementById('config-button');
+    if (configButton) {
+        configButton.addEventListener('click', () => {
+            fetch('/config/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                if (data.status === 'exists' && data.config) {
+                    showConfigModal(data.config);
+                } else if (data.status === 'missing' && data.example_config) {
+                    showConfigModal(data.example_config);
+                } else if (data.status === 'no_example') {
+                    alert('Error: Missing configuration example file! Please ensure that the config/config.example.toml file exists.');
+                } else if (data.status === 'error') {
+                    alert('Configuration error: ' + data.message);
+                } else {
+                    alert('Unable to load configuration. Please check if config.example.toml exists.');
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch configuration:', error);
+                alert('Failed to load configuration. Please check if the server is running and try again.');
+            });
+        });
+    }
 
     document.getElementById('prompt-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -535,6 +738,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pythonModal && pythonModal.classList.contains('active')) {
                 pythonModal.classList.remove('active');
             }
+
+            const configModal = document.getElementById('config-modal');
+            if (configModal && configModal.classList.contains('active') && !isConfigRequired()) {
+                configModal.classList.remove('active');
+            }
         }
     });
 });
+
+function isConfigRequired() {
+    return false;
+}

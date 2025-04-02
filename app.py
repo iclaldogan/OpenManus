@@ -253,6 +253,66 @@ async def get_task(task_id: str):
     return task_manager.tasks[task_id]
 
 
+@app.get("/config/status")
+async def check_config_status():
+    config_path = Path(__file__).parent / "config" / "config.toml"
+    example_config_path = Path(__file__).parent / "config" / "config.example.toml"
+
+    if config_path.exists():
+        try:
+            with open(config_path, "rb") as f:
+                current_config = tomllib.load(f)
+            return {"status": "exists", "config": current_config}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    elif example_config_path.exists():
+        try:
+            with open(example_config_path, "rb") as f:
+                example_config = tomllib.load(f)
+            return {"status": "missing", "example_config": example_config}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    else:
+        return {"status": "no_example"}
+
+
+@app.post("/config/save")
+async def save_config(config_data: dict = Body(...)):
+    try:
+        config_dir = Path(__file__).parent / "config"
+        config_dir.mkdir(exist_ok=True)
+
+        config_path = config_dir / "config.toml"
+
+        toml_content = ""
+
+        if "llm" in config_data:
+            toml_content += "# Global LLM configuration\n[llm]\n"
+            llm_config = config_data["llm"]
+            for key, value in llm_config.items():
+                if key != "vision":
+                    if isinstance(value, str):
+                        toml_content += f'{key} = "{value}"\n'
+                    else:
+                        toml_content += f"{key} = {value}\n"
+
+        if "server" in config_data:
+            toml_content += "\n# Server configuration\n[server]\n"
+            server_config = config_data["server"]
+            for key, value in server_config.items():
+                if isinstance(value, str):
+                    toml_content += f'{key} = "{value}"\n'
+                else:
+                    toml_content += f"{key} = {value}\n"
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(toml_content)
+
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -268,18 +328,20 @@ def load_config():
     try:
         config_path = Path(__file__).parent / "config" / "config.toml"
 
+        if not config_path.exists():
+            return {"host": "localhost", "port": 5172}
+
         with open(config_path, "rb") as f:
             config = tomllib.load(f)
 
         return {"host": config["server"]["host"], "port": config["server"]["port"]}
     except FileNotFoundError:
-        raise RuntimeError(
-            "Configuration file not found, please check if config/fig.toml exists"
-        )
+        return {"host": "localhost", "port": 5172}
     except KeyError as e:
-        raise RuntimeError(
-            f"The configuration file is missing necessary fields: {str(e)}"
+        print(
+            f"The configuration file is missing necessary fields: {str(e)}, use default configuration"
         )
+        return {"host": "localhost", "port": 5172}
 
 
 if __name__ == "__main__":
