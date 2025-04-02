@@ -4,6 +4,14 @@ from typing import List
 from googlesearch import search
 
 from app.tool.base import BaseTool
+import asyncio
+from typing import List
+
+from googlesearch import search
+
+from app.tool.base import BaseTool
+from app.tool.base import ToolResult
+
 
 
 class GoogleSearch(BaseTool):
@@ -28,21 +36,17 @@ The tool returns a list of URLs that match the search query.
         "required": ["query"],
     }
 
-    async def execute(self, query: str, num_results: int = 10) -> List[str]:
-        """
-        Execute a Google search and return a list of URLs.
+    async def execute(self, **kwargs) -> ToolResult:
+        if not kwargs:
+            return ToolResult(output="Error: No parameters received", error="Missing params")
 
-        Args:
-            query (str): The search query to submit to Google.
-            num_results (int, optional): The number of search results to return. Default is 10.
+        query = kwargs.get("query")
+        num_results = kwargs.get("num_results", 10)
 
-        Returns:
-            List[str]: A list of URLs matching the search query.
-        """
-        # Run the search in a thread pool to prevent blocking
+        if not query:
+            return ToolResult(output="Missing 'query' parameter", error="Missing query")
+
         loop = asyncio.get_event_loop()
-        links = await loop.run_in_executor(
-            None, lambda: list(search(query, num_results=num_results))
-        )
+        links = await loop.run_in_executor(None, lambda: list(search(query, num_results=num_results)))
 
-        return links
+        return ToolResult(output="\n".join(links))

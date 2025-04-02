@@ -7,7 +7,17 @@ from app.tool.browser_use_tool import BrowserUseTool
 from app.tool.file_saver import FileSaver
 from app.tool.google_search import GoogleSearch
 from app.tool.python_execute import PythonExecute
+from app.tool import tools
 
+# Import task persistence tools
+from app.tool.task_persistence_tools import SaveTask, ListTasks, ResumeTask, DeleteTask
+# Import computer control tools
+from app.tool.computer_control_tools import (
+    SystemInfo,
+    ListRunningProcesses,
+    MonitorSystem,
+    FileSystemExplorer
+)
 
 class Manus(ToolCallAgent):
     """
@@ -32,6 +42,25 @@ class Manus(ToolCallAgent):
     # Add general-purpose tools to the tool collection
     available_tools: ToolCollection = Field(
         default_factory=lambda: ToolCollection(
-            PythonExecute(), GoogleSearch(), BrowserUseTool(), FileSaver(), Terminate()
+            # Basic tools
+            PythonExecute(),
+            GoogleSearch(),
+            BrowserUseTool(),
+            FileSaver(),
+            
+            # Task persistence tools
+            SaveTask(),
+            ListTasks(),
+            ResumeTask(),
+            DeleteTask(),
+            
+            # Computer control tools
+            SystemInfo(),
+            ListRunningProcesses(),
+            MonitorSystem(),
+            FileSystemExplorer(),
+            
+            # Special tools
+            Terminate()
         )
     )

@@ -3,14 +3,21 @@ from typing import Any, Dict, List
 
 from app.exceptions import ToolError
 from app.tool.base import BaseTool, ToolFailure, ToolResult
+from app.tool.tool_factory import ToolFactory
+from app.tool.terminate import Terminate
+from app.agent.task_lifecycle import TaskLifecycleManager
 
 
 class ToolCollection:
-    """A collection of defined tools."""
+    """A collection of defined and dynamic tools."""
 
     def __init__(self, *tools: BaseTool):
-        self.tools = tools
-        self.tool_map = {tool.name: tool for tool in tools}
+        self.dynamic_factory = ToolFactory()
+        self.lifecycle = TaskLifecycleManager()
+        terminate_tool = Terminate(lifecycle=self.lifecycle)
+        self.tools = list(tools) + [terminate_tool]
+        self.tool_map = {tool.name: tool for tool in self.tools}
+
 
     def __iter__(self):
         return iter(self.tools)
@@ -18,9 +25,7 @@ class ToolCollection:
     def to_params(self) -> List[Dict[str, Any]]:
         return [tool.to_param() for tool in self.tools]
 
-    async def execute(
-        self, *, name: str, tool_input: Dict[str, Any] = None
-    ) -> ToolResult:
+    async def execute(self, *, name: str, tool_input: Dict[str, Any] = None) -> ToolResult:
         tool = self.tool_map.get(name)
         if not tool:
             return ToolFailure(error=f"Tool {name} is invalid")
@@ -31,7 +36,6 @@ class ToolCollection:
             return ToolFailure(error=e.message)
 
     async def execute_all(self) -> List[ToolResult]:
-        """Execute all tools in the collection sequentially."""
         results = []
         for tool in self.tools:
             try:
@@ -45,7 +49,7 @@ class ToolCollection:
         return self.tool_map.get(name)
 
     def add_tool(self, tool: BaseTool):
-        self.tools += (tool,)
+        self.tools.append(tool)
         self.tool_map[tool.name] = tool
         return self
 
@@ -53,3 +57,8 @@ class ToolCollection:
         for tool in tools:
             self.add_tool(tool)
         return self
+
+    def add_dynamic_tool(self, name, description, parameters, function):
+        tool = self.dynamic_factory.create_tool(name, description, parameters, function)
+        self.add_tool(tool)
+        return tool

@@ -38,12 +38,14 @@
                   </div>
                   <el-divider />
                   <div v-for="(subStep, subIndex) in step.subList">
-                    <div class="fxsb mtb-10">
-                      <el-text> {{ subStep.type }} </el-text>
+                    
+    <div v-if="subStep && subStep.result" class="fxsb mtb-10">
+      <el-text> {{ subStep.type }} </el-text>
+    
                       <el-text class="sub-step-time"> {{ subStep.createdDt }} </el-text>
                     </div>
                     <div>
-                      <el-text> {{ subStep.result }} </el-text>
+                      <el-text> {{ typeof subStep.result === 'string' ? subStep.result : JSON.stringify(subStep.result, null, 2) }} </el-text>
                     </div>
                     <el-divider v-if="subIndex != step.subList.length - 1" />
                   </div>

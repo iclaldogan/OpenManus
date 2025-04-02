@@ -35,4 +35,19 @@ class ReActAgent(BaseAgent, ABC):
         should_act = await self.think()
         if not should_act:
             return "Thinking complete - no action needed"
-        return await self.act()
+        
+        result = await self.act()
+
+        if result and "Do you want me to terminate or stay ready for more?" in result:
+            # Pause and ask the user for a decision
+            print(result)  # show the result in terminal
+            user_input = input("👉 Type 'terminate' to stop or 'continue' to keep going: ").strip().lower()
+            if user_input == "terminate":
+                self.state = AgentState.FINISHED
+                return "🔚 Task terminated by user."
+            else:
+                self.state = AgentState.RUNNING
+                return "🔄 Continuing task."
+
+        return result
+

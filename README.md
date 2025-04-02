@@ -116,6 +116,51 @@ python main.py
 
 Then input your idea via terminal!
 
+### Task Resumption
+
+OpenManus now supports saving and resuming tasks. This is useful for long-running tasks or when you need to continue a conversation later.
+
+#### Command Line Arguments
+
+```bash
+# List all saved tasks
+python main.py --list-tasks
+
+# Resume a specific task
+python main.py --resume task_20250403_022145
+
+# Delete a specific task
+python main.py --delete-task task_20250403_022145
+```
+
+#### Interactive Commands
+
+You can also use these commands during an interactive session:
+
+- `save task [optional_id]` - Save the current task state
+- `list tasks` - List all saved tasks
+- `resume task [task_id]` - Resume a previously saved task
+- `delete task [task_id]` - Delete a saved task
+
+### Computer Control
+
+OpenManus now has enhanced capabilities to interact with and control your computer:
+
+- System information and monitoring
+- Process management
+- File system exploration
+- Screenshot capture
+- Application control
+- Wallpaper management
+
+Simply ask Manus to perform these operations, for example:
+- "Show me system information"
+- "Monitor CPU and memory usage for 30 seconds"
+- "List running processes sorted by CPU usage"
+- "Explore files in my Documents folder"
+- "Take a screenshot"
+- "Set a new wallpaper"
+
 For unstable version, you also can run:
 
 ```bash
